@@ -154,6 +154,64 @@ def recommend(video, fps, minutes_ok=60):
     return dict(preset=pick, workers=workers, size=size), report
 
 
+def process_tree(pid):
+    """pid plus every process it started, so pausing also reaches the fitter's worker processes."""
+    import ctypes
+    from ctypes import wintypes
+
+    class Entry(ctypes.Structure):
+        _fields_ = [("size", wintypes.DWORD), ("usage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_size_t),
+                    ("module", wintypes.DWORD), ("threads", wintypes.DWORD), ("parent", wintypes.DWORD), ("priority", ctypes.c_long),
+                    ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
+    k = ctypes.windll.kernel32
+    k.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    snap = k.CreateToolhelp32Snapshot(2, 0)  # all processes
+    e = Entry()
+    e.size = ctypes.sizeof(Entry)
+    children = {}
+    ok = k.Process32FirstW(wintypes.HANDLE(snap), ctypes.byref(e))
+    while ok:
+        children.setdefault(e.parent, []).append(e.pid)
+        ok = k.Process32NextW(wintypes.HANDLE(snap), ctypes.byref(e))
+    k.CloseHandle(wintypes.HANDLE(snap))
+    found, todo = [], [pid]
+    while todo:
+        p = todo.pop()
+        if p not in found:
+            found.append(p)
+            todo += children.get(p, [])
+    return found
+
+
+def set_paused(pid, pause):
+    """Freezes or unfreezes a process tree in place; nothing is lost while paused."""
+    import ctypes
+    from ctypes import wintypes
+    k, nt = ctypes.windll.kernel32, ctypes.windll.ntdll
+    k.OpenProcess.restype = wintypes.HANDLE
+    for p in process_tree(pid):
+        h = k.OpenProcess(0x0800, False, p)  # PROCESS_SUSPEND_RESUME
+        if h:
+            (nt.NtSuspendProcess if pause else nt.NtResumeProcess)(wintypes.HANDLE(h))
+            k.CloseHandle(wintypes.HANDLE(h))
+
+
+def gd_running():
+    out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq GeometryDash.exe"], capture_output=True, text=True, creationflags=NO_WINDOW).stdout
+    return "GeometryDash.exe" in out
+
+
+def open_gd(res):
+    """Starts GD through Steam, or its exe next to the Resources folder if Steam's link doesn't work."""
+    try:
+        os.startfile("steam://rungameid/322170")
+    except OSError:
+        exe = os.path.join(os.path.dirname(res.rstrip("\\/")), "GeometryDash.exe")
+        if not os.path.exists(exe):
+            raise RuntimeError("Couldn't start Geometry Dash. Is Steam installed?") from None
+        subprocess.Popen([exe], cwd=os.path.dirname(exe))
+
+
 def ffmpeg(*args):
     r = subprocess.run(["ffmpeg", "-y", "-v", "error", *args], capture_output=True, text=True, creationflags=NO_WINDOW)
     if r.returncode:
@@ -161,7 +219,7 @@ def ffmpeg(*args):
 
 
 BG, PANEL, FIELD, BORDER = "#262624", "#30302e", "#1f1e1d", "#45443f"
-TEXT, MUTED, ACCENT, ACCENT_HOVER = "#ece9e1", "#a8a59b", "#d97757", "#c4643f"
+TEXT, MUTED, ACCENT, ACCENT_HOVER, ERROR = "#ece9e1", "#a8a59b", "#d97757", "#c4643f", "#ff6b6b"
 
 
 def dark_theme(root, ttk):
@@ -234,7 +292,7 @@ def run_gui():
     mp3_too = tk.BooleanVar(value=True)
     inject = tk.BooleanVar(value=True)
     advanced = tk.BooleanVar(value=False)
-    state = {"proc": None, "cancel": False, "running": False, "t0": 0, "total": 0, "first_err": {}}
+    state = {"proc": None, "cancel": False, "running": False, "t0": 0, "total": 0, "first_err": {}, "paused_at": 0}
     row = [2]
 
     def line(label, widget, button=None):
@@ -329,7 +387,7 @@ def run_gui():
     line("GD Resources", ttk.Entry(left, textvariable=v["res"]),
          ttk.Button(left, text="Browse...", command=lambda: v["res"].set(filedialog.askdirectory() or v["res"].get())))
     line("GD save file", ttk.Entry(left, textvariable=v["save"]))
-    ttk.Checkbutton(left, text="Inject into Geometry Dash when done (GD must be closed)", variable=inject).grid(
+    ttk.Checkbutton(left, text="Inject into Geometry Dash when done (waits for GD to be closed)", variable=inject).grid(
         row=row[0], column=0, columnspan=3, sticky="w")
     row[0] += 1
     ttk.Checkbutton(left, text="Also save the video's audio as MP3", variable=mp3_too).grid(row=row[0], column=0, columnspan=3, sticky="w")
@@ -355,22 +413,26 @@ def run_gui():
     status.pack(anchor="w", pady=(6, 0))
     eta = ttk.Label(card, text="", style="CardMuted.TLabel")
     eta.pack(anchor="w")
+    ttk.Button(card, text="Open Geometry Dash", command=lambda: launch_gd(), style="Accent.TButton").pack(anchor="w", pady=(10, 0))
     logbox = tk.Text(card, height=7, width=70, wrap="word", state="disabled", bg=FIELD, fg=TEXT, insertbackground=TEXT, relief="flat",
                      highlightthickness=1, highlightbackground=BORDER, highlightcolor=BORDER, font=("Consolas", 9), padx=8, pady=6)
     logbox.pack(fill="both", expand=True, pady=(10, 0))
     photo = [None]
     progress_dir = os.path.join(DATA, "progress")
 
-    def log(text):
+    logbox.tag_configure("error", foreground=ERROR)
+
+    def log(text, error=False):
         def add():
             logbox.configure(state="normal")
-            logbox.insert("end", text + "\n")
+            logbox.insert("end", text + "\n", ("error",) if error else ())
             logbox.see("end")
             logbox.configure(state="disabled")
         root.after(0, add)
 
-    def set_status(text, pct=None):
-        root.after(0, lambda: (status.configure(text=text), pct is not None and total_bar.configure(value=pct)))
+    def set_status(text, pct=None, error=False):
+        root.after(0, lambda: (status.configure(text=text, foreground=ERROR if error else TEXT),
+                               pct is not None and total_bar.configure(value=pct)))
 
     def clock(sec):
         sec = int(sec)
@@ -378,7 +440,9 @@ def run_gui():
 
     def poll():
         """Reads the fitter's progress files. The earliest unfinished frame is shown, so the preview doesn't jump between scenes."""
-        if state["running"] and state["total"] and os.path.isdir(progress_dir):
+        if state["paused_at"]:
+            eta.configure(text=f"Paused   ·   elapsed {clock(state['paused_at'] - state['t0'])}" if state["t0"] else "Paused")
+        elif state["running"] and state["total"] and os.path.isdir(progress_dir):
             infos = {}
             for name in os.listdir(progress_dir):
                 if name.endswith(".json"):
@@ -441,14 +505,15 @@ def run_gui():
         open(logfile, "w").close()
         proc = subprocess.Popen(self_command(mode, logfile, *args), creationflags=NO_WINDOW)
         state["proc"] = proc
-        seen = 0
+        seen, failing = 0, False
         while True:
             finished = proc.poll() is not None
             with open(logfile, encoding="utf8", errors="replace") as f:
                 lines = f.read().splitlines()
             for text in lines[seen:]:
+                failing = failing or text.startswith(("Traceback", "ERROR"))
                 if not text.startswith("chunk "):
-                    log(text)
+                    log(text, error=failing)
                 if text.startswith("fitting "):
                     state["total"], state["t0"] = int(text.split()[1]), time.time()
             seen = len(lines)
@@ -459,6 +524,8 @@ def run_gui():
         if state["cancel"]:
             raise RuntimeError("Cancelled.")
         if proc.returncode:
+            if lines and not failing:  # a short reason, like "Close Geometry Dash first", already went in the log
+                log(lines[-1], error=True)
             raise RuntimeError(lines[-1] if lines else f"{mode} failed")
 
     def number(key):
@@ -503,13 +570,23 @@ def run_gui():
             state["first_err"].clear()
             set_status("Reading the video...", 0)
             state["running"] = True
+            root.after(0, lambda: pause_btn.configure(state="normal"))
             run_step("--fit", [video, "--out", out, *args])
             state["running"] = False
+            root.after(0, lambda: pause_btn.configure(state="disabled"))
             root.after(600, lambda: (total_bar.configure(value=100), frame_bar.configure(value=100)))
             took = time.time() - state["t0"]
             root.after(700, lambda: eta.configure(text=f"Fitting took {clock(took)}"))
             log(f"Preview video: {out}_preview.mp4 (original | GD objects | pixel grid)")
             if inject.get():
+                # GD rewrites its save when it closes, so wait for it instead of failing after a long fit.
+                if gd_running():
+                    log("Waiting for Geometry Dash to close before injecting...")
+                while gd_running():
+                    set_status("Close Geometry Dash to inject the level.", 100, error=True)
+                    if state["cancel"]:
+                        raise RuntimeError("Cancelled.")
+                    time.sleep(2)
                 set_status("Injecting into Geometry Dash...", 100)
                 run_step("--build", [out + ".json", "--level", level, "--save", v["save"].get()])
                 set_status(f'Done. Open "{level}" in Geometry Dash.', 100)
@@ -517,22 +594,50 @@ def run_gui():
                 set_status("Done. Fitted, not injected.", 100)
         except Exception as e:  # shown to the user rather than lost in a hidden console
             state["running"] = False
-            set_status("Stopped.")
-            log(f"ERROR: {e}")
-            root.after(0, lambda: messagebox.showerror(APP, str(e)))
+            cancelled = str(e) == "Cancelled."
+            set_status("Cancelled." if cancelled else f"Stopped: {e}", error=True)
+            log(f"ERROR: {e}", error=True)
+            if not cancelled:
+                root.after(0, lambda: messagebox.showerror(APP, str(e)))
         finally:
             state["cancel"] = False
-            root.after(0, lambda: start_btn.configure(state="normal"))
+            state["paused_at"] = 0
+            root.after(0, lambda: (start_btn.configure(state="normal"), pause_btn.configure(state="disabled", text="Pause")))
 
     def start():
         start_btn.configure(state="disabled")
-        state["total"], state["t0"] = 0, 0
+        state["total"], state["t0"], state["paused_at"] = 0, 0, 0
         threading.Thread(target=work, daemon=True).start()
 
+    def toggle_pause():
+        proc = state["proc"]
+        if not proc or not state["running"]:
+            return
+        if state["paused_at"]:
+            set_paused(proc.pid, False)
+            state["t0"] += time.time() - state["paused_at"]  # paused time doesn't count toward elapsed or the estimate
+            state["paused_at"] = 0
+            pause_btn.configure(text="Pause")
+            log("Resumed.")
+        else:
+            set_paused(proc.pid, True)
+            state["paused_at"] = time.time()
+            pause_btn.configure(text="Resume")
+            status.configure(text="Paused. Press Resume to continue.", foreground=TEXT)
+            log("Paused.")
+
     def cancel():
+        state["cancel"] = True  # also stops waiting for GD to close
         if state["proc"]:
-            state["cancel"] = True
             subprocess.run(["taskkill", "/T", "/F", "/PID", str(state["proc"].pid)], capture_output=True, creationflags=NO_WINDOW)
+
+    def launch_gd():
+        try:
+            open_gd(v["res"].get())
+            log("Opening Geometry Dash...")
+        except RuntimeError as e:
+            log(f"ERROR: {e}", error=True)
+            messagebox.showerror(APP, str(e))
 
     def open_path(p):
         if os.path.exists(p):
@@ -567,6 +672,8 @@ def run_gui():
 
     start_btn = ttk.Button(buttons, text="Generate", command=start, style="Accent.TButton")
     start_btn.pack(side="left")
+    pause_btn = ttk.Button(buttons, text="Pause", command=toggle_pause, state="disabled", width=8)
+    pause_btn.pack(side="left", padx=(6, 0))
     ttk.Button(buttons, text="Cancel", command=cancel).pack(side="left", padx=6)
     ttk.Button(buttons, text="Extract MP3...", command=save_mp3).pack(side="left")
     ttk.Button(buttons, text="Open preview", command=lambda: open_path(os.path.join(out_dir(), "fit_preview.mp4"))).pack(side="left", padx=6)
