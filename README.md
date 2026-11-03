@@ -21,21 +21,21 @@ Pick a video, choose a quality, press Generate. It's fitted with hundreds of tho
 
 ---
 
-## ✨ Features
+## Features
 
-| | |
+| Feature | Details |
 |---|---|
-| 🎯 **Real GD objects, not pixels** | Each frame is built from 262 still editor objects (blocks, slopes, gradients, outlines and more), each placed, scaled, rotated and colored to match the video. |
-| 🔤 **Readable text and faces** | An edge-detail boost spends more objects on text, eyes and outlines than on flat background. |
-| 🧪 **Objects tested in the real game** | Every object was checked in GD for animation, pulsing, parts that won't take color, and layer order. Anything that failed is left out. |
-| 👀 **Live preview** | Watch each frame being built object by object, beside the original. |
-| ⏱️ **Progress and time left** | Frame and whole-video progress bars, the current frame number, its object count and error, plus elapsed time and an estimate of time left. |
-| 🧠 **Recommended settings** | Checks your CPU threads, free RAM and speed, then picks the sharpest quality that finishes in about an hour. |
-| 🎚️ **Sliders for everything** | Ten settings as sliders, plus an **Advanced** mode to type values up to 10x higher. |
-| 🎵 **MP3 extraction** | Save the video's audio with one click, or automatically with every video. |
-| ✂️ **Trim** | Only fit part of a video with a start time and length. |
-| 🛡️ **Save-safe injection** | Your save is backed up first, and the result is checked before anything is written. It refuses to run while GD is open, and won't overwrite levels it didn't make. |
-| 🌙 **Dark theme** | Because of course. |
+| **Real GD objects, not pixels** | Each frame is built from 262 still editor objects (blocks, slopes, gradients, outlines and more), each placed, scaled, rotated and colored to match the video. |
+| **Readable text and faces** | An edge-detail boost spends more objects on text, eyes and outlines than on flat background. |
+| **Objects tested in the real game** | Every object was checked in GD for animation, pulsing, parts that won't take color, and layer order. Anything that failed is left out. |
+| **Live preview** | Watch each frame being built object by object, beside the original. |
+| ⏱**Progress and time left** | Frame and whole-video progress bars, the current frame number, its object count and error, plus elapsed time and an estimate of time left. |
+| **Recommended settings** | Checks your CPU threads, free RAM and speed, then picks the sharpest quality that finishes in about an hour. |
+| **Sliders for everything** | Ten settings as sliders, plus an **Advanced** mode to type values up to 10x higher. |
+| **MP3 extraction** | Save the video's audio with one click, or automatically with every video. |
+| **Trim** | Only fit part of a video with a start time and length. |
+| **Save-safe injection** | Your save is backed up first, and the result is checked before anything is written. It refuses to run while GD is open, and won't overwrite levels it didn't make. |
+| **Dark theme** | Because of course. |
 
 <div align="center">
 <img src="assets/app.png" width="85%" alt="The GD Video Maker window">
@@ -43,7 +43,7 @@ Pick a video, choose a quality, press Generate. It's fitted with hundreds of tho
 
 <a id="download"></a>
 
-## 📥 Download
+## Download
 
 1. Download the latest **`GD-Video-Maker.zip`** from [Releases](../../releases).
 2. Unzip it anywhere and open **`GD Video Maker.exe`**. Python, FFmpeg and everything else are included.
@@ -56,7 +56,7 @@ Pick a video, choose a quality, press Generate. It's fitted with hundreds of tho
 > [!TIP]
 > On first run the app reads object art from GD, which takes a few seconds. After that it starts right away.
 
-## 🎬 Results
+## Results
 
 <div align="center">
 <img src="assets/comparison.png" width="85%" alt="Original video frames, the GD object version and a pixel grid">
@@ -76,7 +76,7 @@ Objects stay on across frames, and only what changed gets new objects, so trigge
 
 <a id="how-it-works"></a>
 
-## 🔍 How it works
+## How it works
 
 ```mermaid
 flowchart LR
@@ -102,7 +102,7 @@ flowchart LR
 
 **Persistent frames.** A redraw places a full picture. The frames after it only add objects on top for what changed, and old groups switch off at the next redraw. That keeps lag low and stops flicker.
 
-## 🧪 The object audit
+## The object audit
 
 Sprite names and art can't tell you whether an object animates, pulses with music or ignores color in-game. So every candidate was **measured inside Geometry Dash**:
 
@@ -132,7 +132,7 @@ Sprite names and art can't tell you whether an object animates, pulses with musi
 
 <a id="settings"></a>
 
-## 🎚️ Settings
+## Settings
 
 | Setting | Slider range | Advanced max | What it does |
 |---|:---:|:---:|---|
@@ -159,7 +159,7 @@ Rough fitting time on a 16-thread PC: **Fast** about 30 s, **Balanced** about 1 
 
 <a id="build-from-source"></a>
 
-## 🛠️ Build from source
+## Build from source
 
 ```bat
 install_prerequisites.bat
@@ -220,7 +220,7 @@ python test_audit.py
 
 <a id="faq"></a>
 
-## ❓ FAQ
+## FAQ
 
 <details>
 <summary><b>Does it use AI?</b></summary>
@@ -258,7 +258,7 @@ That's Windows' icon cache showing an old icon. Run `Fix icon.bat` in the app fo
 Huge levels can be slow to save, load and upload. Uploading also needs to follow Geometry Dash's rules, so check them first.
 </details>
 
-## ⚠️ Limitations
+## Limitations
 
 - Windows only; the save path and screen capture are Windows-specific.
 - The audit was run on GD 2.2 at one point in time. A game update could change which objects animate.
@@ -268,7 +268,7 @@ Huge levels can be slow to save, load and upload. Uploading also needs to follow
 
 <a id="credits"></a>
 
-## 🙏 Credits
+## Credits
 
 - **[ANMT](https://github.com/SpeckyYT/ANMT)** by SpeckyYT: the video-to-GD converter this project started from. Its trigger-group frames and pixel-grid approach inspired this tool. No ANMT code is included.
 - **[Geometrize](https://www.geometrize.co.uk/)** by Sam Twidale and **[primitive](https://github.com/fogleman/primitive)** by Michael Fogleman: the shape-fitting method. No code from either is included.
