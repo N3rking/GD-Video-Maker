@@ -1,0 +1,25 @@
+GD Video Maker - credits
+
+Code written with Claude (Anthropic's AI assistant) in Claude Code. The video generator itself uses no AI.
+
+Inspiration and prior work
+- ANMT by SpeckyYT (https://github.com/SpeckyYT/ANMT): the video-to-Geometry-Dash converter this project started from.
+  Its idea of showing each frame as a group of objects switched on and off by triggers, and its pixel-grid
+  method, shaped this tool. The grid column in the preview video re-creates ANMT's approach for comparison.
+  No ANMT code is included.
+- Geometrize by Sam Twidale and primitive by Michael Fogleman: the "try random shapes, keep the best, nudge it
+  into place" method the object fitter is modeled on. No code from either is included.
+- gd-object-frame-map by jeremylpro (https://github.com/jeremylpro/gd-object-frame-map): the map from GD object
+  IDs to sprite names, used to build the list of objects that were tested. verified_objects.json comes from it.
+- The Geometry Dash community, whose public write-ups document the save file and level format.
+
+Game
+- Geometry Dash by RobTop Games. Object art is read from your own install; none is included.
+
+Software used
+- Python (https://www.python.org), PSF License.
+- NumPy (https://numpy.org), BSD license.
+- Tcl/Tk and tkinter, for the window. BSD-style license.
+- FFmpeg (https://ffmpeg.org), GPL. A copy of ffmpeg.exe is bundled. Build by Gyan Doshi (https://www.gyan.dev/ffmpeg/builds/);
+  source code is available from ffmpeg.org.
+- PyInstaller (https://pyinstaller.org), used to package the .exe. GPL with an exception that allows bundled programs.

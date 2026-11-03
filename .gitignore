@@ -1,0 +1,18 @@
+# Build output and generated files
+dist/
+build_tmp/
+__pycache__/
+*.spec
+*.json.tmp
+*.ppm
+
+# Fitting outputs and recordings
+*_preview.mp4
+*_sheet.png
+*.mp4
+*.mp3
+audit_capture.mp4
+
+# Derived from GD's sprite art; each player builds their own
+data/
+*.npz
