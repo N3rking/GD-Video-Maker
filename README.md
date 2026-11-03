@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="assets/icon.png" width="96" alt="GD Video Maker icon">
-
 # GD Video Maker
 
 **Turn any MP4 into a Geometry Dash level, built from real editor objects.**
